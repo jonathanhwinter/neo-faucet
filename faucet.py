@@ -36,10 +36,16 @@ from jinja2 import Template,FileSystemLoader,Environment
 
 
 class FaucetRequest(Model):
+    """
+    @param Model: some default model object
+    """
     address = CharField()
     last = DateField()
 
-class IPRequest(Model):
+class IPRequest(Model): 
+    """
+    @param Model: some default model object 
+    """
     client = CharField(max_length=1024)
     last = DateField()
 
@@ -47,14 +53,17 @@ settings.set_logfile("logfile.log", max_bytes=1e7, backup_count=3)
 
 
 class ItemStore(object):
-    app = Klein()
+    """
+    @param object: some default object  
+    """
+    app = Klein()  # initializing Klein instance
 
-    wallet = None
+    wallet = None  # initializing wallet
 
-    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+    BASE_DIR = os.path.dirname(os.path.abspath(__file__)) # getting the directory of the current file's location
 
     j2_env = Environment(loader=FileSystemLoader(BASE_DIR),
-                         trim_blocks=True)
+                         trim_blocks=True) # setting up the jinja2 environment for templates
 
 
     run_db = None
@@ -74,16 +83,19 @@ class ItemStore(object):
 
         self.wallet = UserWallet.Open(path=wallet_path, password=passwd)
 
-        dbloop = task.LoopingCall(self.wallet.ProcessBlocks)
-        dbloop.start(.1)
+        dbloop = task.LoopingCall(self.wallet.ProcessBlocks) # huh?
+        dbloop.start(.1) # huh?
 
-        self.wallet.Rebuild()
-        self.wallet._current_height = 100000
-        print("created wallet: %s " % self.wallet)
+        self.wallet.Rebuild() # why rebuild the wallet?
+        self.wallet._current_height = 100000 # why set the wallet at that height?
+        print("created wallet: %s " % self.wallet) 
 
 
     def _build_run_db(self):
-
+        """
+        establish a connection to sqlite db, run it, and create the tables
+        FaucetRequest and IPRequest
+        """
         try:
             self.run_db = SqliteDatabase(self.run_db_path)
             self.run_db.connect()
@@ -97,25 +109,30 @@ class ItemStore(object):
 
 
     def _get_context(self):
-
-        neo_balance = Fixed8.Zero()
+        """
+        function gets current NEO and NEOGas balances
+        then returns a json object stating the 
+        """
+        neo_balance = Fixed8.Zero()  # initializes NEO balance at 0 (to 8 decimal places)
         for coin in self.wallet.FindUnspentCoinsByAsset(Blockchain.SystemShare().Hash):
             neo_balance += coin.Output.Value
 
-        gas_balance = Fixed8.Zero()
+        gas_balance = Fixed8.Zero()  # initializes NEOGas balance at 0 (to 8 decimal places)
         for coin in self.wallet.FindUnspentCoinsByAsset(Blockchain.SystemCoin().Hash):
             gas_balance += coin.Output.Value
 
         return {
-            'message':'Hello',
-            'height':Blockchain.Default().Height,
+            'message': 'Hello',
+            'height': Blockchain.Default().Height,  # current block height on this instance of the blockchain
             'neo': neo_balance.ToInt(),
             'gas': gas_balance.ToInt(),
-            'wallet_height': self.wallet.WalletHeight
+            'wallet_height': self.wallet.WalletHeight # is this just the number of transactions that the wallet has had
         }
 
     def _make_tx(self, addr_to):
-
+        """
+        
+        """
         output1 = TransactionOutput(
             AssetId = Blockchain.SystemCoin().Hash,
             Value = Fixed8.FromDecimal(2000),

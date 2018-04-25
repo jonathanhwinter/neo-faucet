@@ -110,8 +110,8 @@ class ItemStore(object):
 
     def _get_context(self):
         """
-        function gets current NEO and NEOGas balances in the user's
-        then returns a json object stating the 
+        function gets the current amount of neo and gas in the user's wallet
+        then returns a json object stating those values
         """
         neo_balance = Fixed8.Zero()  # initializes NEO balance at 0 (to 8 decimal places)
         for coin in self.wallet.FindUnspentCoinsByAsset(Blockchain.SystemShare().Hash):

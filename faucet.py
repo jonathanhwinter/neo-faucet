@@ -54,7 +54,7 @@ settings.set_logfile("logfile.log", max_bytes=1e7, backup_count=3)
 
 class ItemStore(object):
     """
-    @param object: some default object  
+    @param object: some default object # why passing this object though?
     """
     app = Klein()  # initializing Klein instance
 
@@ -86,7 +86,7 @@ class ItemStore(object):
         dbloop = task.LoopingCall(self.wallet.ProcessBlocks) # huh?
         dbloop.start(.1) # huh?
 
-        self.wallet.Rebuild() # why rebuild the wallet?
+        self.wallet.Rebuild() # make sure the wallet is up to date
         self.wallet._current_height = 100000 # why set the wallet at that height?
         print("created wallet: %s " % self.wallet) 
 
@@ -110,7 +110,7 @@ class ItemStore(object):
 
     def _get_context(self):
         """
-        function gets current NEO and NEOGas balances
+        function gets current NEO and NEOGas balances in the user's
         then returns a json object stating the 
         """
         neo_balance = Fixed8.Zero()  # initializes NEO balance at 0 (to 8 decimal places)
@@ -123,47 +123,47 @@ class ItemStore(object):
 
         return {
             'message': 'Hello',
-            'height': Blockchain.Default().Height,  # current block height on this instance of the blockchain
+            'height': Blockchain.Default().Height,  # current number of blocks on this instance of the blockchain
             'neo': neo_balance.ToInt(),
             'gas': gas_balance.ToInt(),
-            'wallet_height': self.wallet.WalletHeight # is this just the number of transactions that the wallet has had
+            'wallet_height': self.wallet.WalletHeight # this is just the number of transactions that the wallet has had
         }
 
     def _make_tx(self, addr_to):
         """
-        
+        process transaction
         """
         output1 = TransactionOutput(
-            AssetId = Blockchain.SystemCoin().Hash,
-            Value = Fixed8.FromDecimal(2000),
-            script_hash = addr_to
+            AssetId = Blockchain.SystemCoin().Hash, # hash of the Gas transaction
+            Value = Fixed8.FromDecimal(2000), # this is how much gas each request will provide
+            script_hash = addr_to # address to send the Gas to
         )
         output2 = TransactionOutput(
-            AssetId = Blockchain.SystemShare().Hash,
-            Value = Fixed8.FromDecimal(100),
-            script_hash = addr_to
+            AssetId = Blockchain.SystemShare().Hash, # hash of the NEO token transaction
+            Value = Fixed8.FromDecimal(100), # this is how much NEO each request will provide
+            script_hash = addr_to # address to send the NEO tokens too
         )
 
-        contract_tx = ContractTransaction()
-        contract_tx.outputs = [output1, output2]
-        contract_tx = self.wallet.MakeTransaction(contract_tx)
+        contract_tx = ContractTransaction() # creates an instance of the transaction
+        contract_tx.outputs = [output1, output2] # outputs the data from the transaction
+        contract_tx = self.wallet.MakeTransaction(contract_tx) # processes transaction 
 
         print("tx to json: %s " % json.dumps(contract_tx.ToJson(), indent=4))
 
-        context = ContractParametersContext(contract_tx, isMultiSig=False)
-        self.wallet.Sign(context)
+        context = ContractParametersContext(contract_tx, isMultiSig=False) # getting the contract context (listed above)
+        self.wallet.Sign(context) # signs the contract
 
         if context.Completed:
 
-            contract_tx.scripts = context.GetScripts()
+            contract_tx.scripts = context.GetScripts() # gets the script hashes from the context 
 
-            self.wallet.SaveTransaction(contract_tx)
+            self.wallet.SaveTransaction(contract_tx) # update the state of the coins in the wallet
 
             #            print("will send tx: %s " % json.dumps(tx.ToJson(),indent=4))
 
-            relayed = NodeLeader.Instance().Relay(contract_tx)
+            relayed = NodeLeader.Instance().Relay(contract_tx)  # relay the transaction to this instance of the node leader 
 
-            if relayed:
+            if relayed: # if tx relay was successful, inform the user and return the contract transaction
                 print("Relayed Tx: %s " % contract_tx.Hash.ToString())
                 return contract_tx
             else:
@@ -179,14 +179,19 @@ class ItemStore(object):
 
     @app.route('/')
     def app_home(self, request):
-
-        ctx = self._get_context()
+        """
+        this method gets the context info and renders it to index.html
+        """
+        ctx = self._get_context() 
         output = self.j2_env.get_template('index.html').render(ctx)
         return output
 
     @app.route('/index.html')
     def app_home(self, request):
-
+        """
+        this method gets the context, checks whether or not there is enough neo/gas 
+        to continue (and informs the user if not)
+        """
         ctx = self._get_context()
 
         if ctx['neo'] < 100 or ctx['gas'] < 2000:
@@ -194,13 +199,21 @@ class ItemStore(object):
 
         ctx['come_back'] = True
 
-        print("contex:%s " % json.dumps(ctx, indent=4))
+        print("context:%s " % json.dumps(ctx, indent=4))
         output = self.j2_env.get_template('index.html').render(ctx)
         return output
 
 
     @app.route('/ask', methods=['POST'])
     def ask_for_assets(self, request):
+        """
+        this method:
+        1. sets the address variable equal to whatever the user input
+        2. checks to make sure that the user agrees with the coz refill station guidelines
+        3. checks to see if there have been too many requests from the same IP address, else continue
+        4. checks to see if a request has already been made from the same wallet address, else continue
+        5. creates and processes the transaction, provides user feedback, and redirects to the success page
+        """
         self.sent_tx = None
         ctx = self._get_context()
         ctx['error'] = True
@@ -270,7 +283,7 @@ class ItemStore(object):
 
         except Exception as e:
             error = 'Could not process request. %s ' % e
-            print("excetption: %s " % e)
+            print("exception: %s " % e)
             ctx['message_error'] = 'Could not process your request: %s ' % e
 
 
@@ -280,6 +293,13 @@ class ItemStore(object):
 
     @app.route('/success')
     def app_success(self, request):
+        """
+        this method:
+        1. checks to make sure that there is a successfully processed transaction and redirects to the home page if not and resets succeed value
+        2. stores the transaction information in json format in the context array
+        3. informs user that the transaction has been relayed to the network
+        4. then it resets the variables and updates the wallet
+        """
         ctx = self._get_context()
         if not self.sent_tx:
             print("NO SENT TX:")
@@ -293,8 +313,8 @@ class ItemStore(object):
         output = self.j2_env.get_template('success.html').render(ctx)
 
         self.sent_tx = None
-        self.wallet.Rebuild()
-        self.wallet._current_height = 100000
+        self.wallet.Rebuild() # update wallet 
+        self.wallet._current_height = 100000 # why set it at this height?
         return output
 
     @app.route('/about')
@@ -326,7 +346,7 @@ def main():
 
 
     store = ItemStore()
-    store.app.run(host, int(port))
+    store.app.run(host, int(port)) # runs the Klein instance on the specified host:port
 
     logger.info("Shutting down.")
 

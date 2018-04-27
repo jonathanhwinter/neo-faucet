@@ -12,11 +12,12 @@ from datetime import date,timedelta,datetime
 from logzero import logger
 from twisted.internet import reactor, task
 
+from neo.Wallets.utils import to_aes_key
 from neo.Network.NodeLeader import NodeLeader
 from neo.Core.Blockchain import Blockchain
 from neo.Implementations.Blockchains.LevelDB.LevelDBBlockchain import LevelDBBlockchain
 from neo.Settings import settings
-from neo.Fixed8 import Fixed8
+from neocore.Fixed8 import Fixed8
 from neo.Core.Helper import Helper
 from neo.Core.TX.Transaction import TransactionOutput,ContractTransaction
 from neo.Implementations.Wallets.peewee.UserWallet import UserWallet
@@ -77,6 +78,7 @@ class ItemStore(object):
 
         wallet_path = os.environ.get('FAUCET_WALLET_PATH','')
         passwd = os.environ.get('FAUCET_WALLET_PASSWORD', '')
+        passwd = to_aes_key(passwd)
 
         if len(passwd) < 1 or len(wallet_path) < 1:
             raise Exception("Please set FAUCET_WALLET_PASSWORD and FAUCET_WALLET_PATH in your ENV vars")

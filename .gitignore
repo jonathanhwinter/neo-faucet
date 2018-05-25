@@ -6,3 +6,4 @@ venv
 *.db3
 *.db
 *.log
+protocol.faucet.json
